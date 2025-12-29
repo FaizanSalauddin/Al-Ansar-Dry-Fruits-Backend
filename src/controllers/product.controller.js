@@ -206,14 +206,14 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-export const getFeaturedProducts = async (req, res) => {
-  try {
-    const products = await Product.find({ featured: true });
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// export const getFeaturedProducts = async (req, res) => {
+//   try {
+//     const products = await Product.find({ featured: true });
+//     res.json(products);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 
 export const getProductsByCategory = async (req, res) => {
   try {
@@ -388,6 +388,25 @@ export const getStockReport = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error"
+    });
+  }
+};
+
+// @desc    Get all unique categories
+// @route   GET /api/products/categories
+// @access  Public
+export const getCategories = async (req, res) => {
+  try {
+    const categories = await Product.distinct("category");
+
+    res.json({
+      success: true,
+      categories,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch categories",
     });
   }
 };

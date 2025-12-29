@@ -5,12 +5,12 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  getFeaturedProducts,
   getProductsByCategory,
   searchProducts,
   updateStock,
   getLowStockProducts,
-  getStockReport
+  getStockReport,
+  getCategories
 } from "../controllers/product.controller.js";
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
@@ -20,8 +20,9 @@ const router = express.Router();
 
 // Public routes
 router.get("/", getProducts);
-router.get("/featured", getFeaturedProducts);
 router.get("/search", searchProducts);
+router.get("/categories", getCategories);
+
 // Stock management routes
 router.get("/low-stock", protect, isAdmin, getLowStockProducts);
 router.get("/stock-report", protect, isAdmin, getStockReport);
