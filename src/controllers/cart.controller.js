@@ -1,6 +1,8 @@
 import Cart from "../models/Cart.model.js";
 import Product from "../models/Product.model.js";
 
+const MAX_QTY_PER_PRODUCT = 5;
+
 // @desc    Get user's cart
 // @route   GET /api/cart
 // @access  Private
@@ -41,7 +43,7 @@ export const getCart = async (req, res) => {
 export const addToCart = async (req, res) => {
   try {
     const { productId, quantity = 1, items } = req.body;
-    
+
     // Validate input
     if (!productId && (!items || !Array.isArray(items))) {
       return res.status(400).json({
@@ -72,11 +74,23 @@ export const addToCart = async (req, res) => {
       const existingItemIndex = cart.items.findIndex(
         item => item.product.toString() === prodId
       );
-
       if (existingItemIndex > -1) {
-        // Update quantity
-        cart.items[existingItemIndex].quantity += qty;
-      } else {
+        const newQty = cart.items[existingItemIndex].quantity + qty;
+
+        if (newQty > MAX_QTY_PER_PRODUCT) {
+          throw new Error(
+            `You can only add up to ${MAX_QTY_PER_PRODUCT} units of ${product.name}`
+          );
+        }
+
+        cart.items[existingItemIndex].quantity = newQty;
+      }
+      else {
+        if (qty > MAX_QTY_PER_PRODUCT) {
+          throw new Error(
+            `You can only add up to ${MAX_QTY_PER_PRODUCT} units of ${product.name}`
+          );
+        }
         // Add new item
         cart.items.push({
           product: prodId,
@@ -87,7 +101,7 @@ export const addToCart = async (req, res) => {
           weight: product.weight
         });
       }
-      
+
       return { success: true, product: product.name };
     };
 
@@ -103,12 +117,12 @@ export const addToCart = async (req, res) => {
         errors.push(err.message);
       }
     }
-    
+
     // Case 2: Multiple items
     if (items && Array.isArray(items)) {
       for (const item of items) {
         const { productId: itemProductId, quantity: itemQuantity = 1 } = item;
-        
+
         if (!itemProductId) {
           errors.push("Item missing productId");
           continue;
@@ -162,6 +176,12 @@ export const updateCartItem = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Quantity must be at least 1"
+      });
+    }
+    if (quantity > MAX_QTY_PER_PRODUCT) {
+      return res.status(400).json({
+        success: false,
+        message: `Maximum ${MAX_QTY_PER_PRODUCT} units allowed per product`
       });
     }
 
@@ -312,7 +332,7 @@ export const increaseQuantity = async (req, res) => {
     }
 
     const currentItem = cart.items[itemIndex];
-    
+
     // Get product for stock check
     const product = await Product.findById(currentItem.product);
     if (product.stockQuantity < currentItem.quantity + 1) {
@@ -321,6 +341,13 @@ export const increaseQuantity = async (req, res) => {
         message: `Only ${product.stockQuantity} items in stock`
       });
     }
+    if (currentItem.quantity >= MAX_QTY_PER_PRODUCT) {
+      return res.status(400).json({
+        success: false,
+        message: `Maximum ${MAX_QTY_PER_PRODUCT} units allowed per product`
+      });
+    }
+
 
     // Increase quantity by 1
     cart.items[itemIndex].quantity += 1;
@@ -371,15 +398,15 @@ export const decreaseQuantity = async (req, res) => {
     }
 
     const currentItem = cart.items[itemIndex];
-    
+
     // If quantity is 1, remove the item
     if (currentItem.quantity === 1) {
       cart.items = cart.items.filter(
         item => item._id.toString() !== itemId
       );
-      
+
       await cart.save();
-      
+
       const populatedCart = await Cart.findById(cart._id)
         .populate("items.product", "name price images weight");
 

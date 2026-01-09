@@ -18,9 +18,9 @@ export const createOrder = async (req, res) => {
     } = req.body;
 
     if (orderItems && orderItems.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "No order items" 
+        message: "No order items"
       });
     }
 
@@ -65,9 +65,9 @@ export const createOrder = async (req, res) => {
     });
   } catch (err) {
     console.error("Create order error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -85,27 +85,27 @@ export const getOrderById = async (req, res) => {
     if (order) {
       // Check if user owns order or is admin
       if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== "admin") {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          message: "Not authorized" 
+          message: "Not authorized"
         });
       }
-      
+
       res.json({
         success: true,
         order
       });
     } else {
-      res.status(404).json({ 
+      res.status(404).json({
         success: false,
-        message: "Order not found" 
+        message: "Order not found"
       });
     }
   } catch (err) {
     console.error("Get order error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -116,7 +116,7 @@ export const getOrderById = async (req, res) => {
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id });
-    
+
     res.json({
       success: true,
       orders,
@@ -124,9 +124,9 @@ export const getMyOrders = async (req, res) => {
     });
   } catch (err) {
     console.error("Get my orders error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -137,7 +137,7 @@ export const getMyOrders = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const orders = await Order.find({}).populate("user", "name email");
-    
+
     res.json({
       success: true,
       orders,
@@ -145,9 +145,9 @@ export const getOrders = async (req, res) => {
     });
   } catch (err) {
     console.error("Get all orders error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -170,23 +170,23 @@ export const updateOrderToPaid = async (req, res) => {
       };
 
       const updatedOrder = await order.save();
-      
+
       res.json({
         success: true,
         message: "Order marked as paid",
         order: updatedOrder
       });
     } else {
-      res.status(404).json({ 
+      res.status(404).json({
         success: false,
-        message: "Order not found" 
+        message: "Order not found"
       });
     }
   } catch (err) {
     console.error("Update to paid error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -204,23 +204,23 @@ export const updateOrderToDelivered = async (req, res) => {
       order.orderStatus = "delivered";
 
       const updatedOrder = await order.save();
-      
+
       res.json({
         success: true,
         message: "Order marked as delivered",
         order: updatedOrder
       });
     } else {
-      res.status(404).json({ 
+      res.status(404).json({
         success: false,
-        message: "Order not found" 
+        message: "Order not found"
       });
     }
   } catch (err) {
     console.error("Update to delivered error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -234,30 +234,30 @@ export const updateOrderStatus = async (req, res) => {
 
     if (order) {
       order.orderStatus = req.body.status;
-      
+
       if (req.body.status === "delivered") {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
       }
 
       const updatedOrder = await order.save();
-      
+
       res.json({
         success: true,
         message: `Order status updated to ${req.body.status}`,
         order: updatedOrder
       });
     } else {
-      res.status(404).json({ 
+      res.status(404).json({
         success: false,
-        message: "Order not found" 
+        message: "Order not found"
       });
     }
   } catch (err) {
     console.error("Update status error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: err.message 
+      message: err.message
     });
   }
 };
@@ -292,14 +292,26 @@ export const createOrderFromCart = async (req, res) => {
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      image: item.product.images?.[0]?.url, // ✅ VERY IMPORTANT
       product: item.product._id
     }));
+
 
     // Calculate prices (simple calculation)
     const itemsPrice = cart.totalPrice;
     const shippingPrice = itemsPrice > 1000 ? 0 : 50; // Free shipping above 1000
     const taxPrice = Math.round(itemsPrice * 0.1); // 10% tax
     const totalPrice = itemsPrice + shippingPrice + taxPrice;
+
+    for (const item of cart.items) {
+      if (item.quantity > MAX_QTY_PER_PRODUCT) {
+        return res.status(400).json({
+          success: false,
+          message: `Order limit exceeded for ${item.name}. Max ${MAX_QTY_PER_PRODUCT} allowed`
+        });
+      }
+    }
+
 
     // Check stock for all items
     for (const item of cart.items) {
