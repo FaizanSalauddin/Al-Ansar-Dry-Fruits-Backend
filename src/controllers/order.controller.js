@@ -1,7 +1,7 @@
 import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js";
 import Cart from "../models/Cart.model.js";
-
+const MAX_QTY_PER_PRODUCT = 5;
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
@@ -268,11 +268,19 @@ export const updateOrderStatus = async (req, res) => {
 export const createOrderFromCart = async (req, res) => {
   try {
     const { shippingAddress, paymentMethod = "cod" } = req.body;
+    const { name, address, city, state, pincode, phone } = shippingAddress;
 
     if (!shippingAddress) {
       return res.status(400).json({
         success: false,
         message: "Shipping address is required"
+      });
+    }
+
+    if (!name || !address || !city || !state || !pincode || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Incomplete shipping address"
       });
     }
 
