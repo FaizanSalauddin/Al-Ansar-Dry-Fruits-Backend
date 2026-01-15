@@ -410,3 +410,35 @@ export const getCategories = async (req, res) => {
     });
   }
 };
+
+// @desc    Toggle product inStock
+// @route   PUT /api/products/:id/toggle-stock
+// @access  Private/Admin
+export const toggleProductStock = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    product.inStock = !product.inStock;
+    await product.save();
+
+    res.json({
+      success: true,
+      message: `Product marked as ${product.inStock ? "In Stock" : "Out of Stock"}`,
+      product,
+    });
+  } catch (err) {
+    console.error("Toggle stock error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+

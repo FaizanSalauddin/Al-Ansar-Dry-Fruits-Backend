@@ -81,6 +81,12 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
       default: "pending",
     },
+    estimatedDeliveryDate: {
+      type: Date,
+      default: null,
+    },
+
+
   },
   { timestamps: true }
 );

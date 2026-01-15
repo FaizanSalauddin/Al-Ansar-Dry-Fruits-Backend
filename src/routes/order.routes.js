@@ -11,6 +11,7 @@ import {
 } from "../controllers/order.controller.js";
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
+import { updateEstimatedDeliveryDate } from "../controllers/order.controller.js";
 
 const router = express.Router();
 
@@ -21,8 +22,11 @@ router.get("/:id", protect, getOrderById);
 router.put("/:id/pay", protect, updateOrderToPaid);
 router.post("/from-cart", protect, createOrderFromCart);
 // Admin routes
+// Admin routes
 router.get("/", protect, isAdmin, getOrders);
 router.put("/:id/deliver", protect, isAdmin, updateOrderToDelivered);
 router.put("/:id/status", protect, isAdmin, updateOrderStatus);
+router.put("/:id/estimated-date", protect, isAdmin, updateEstimatedDeliveryDate);
+
 
 export default router;

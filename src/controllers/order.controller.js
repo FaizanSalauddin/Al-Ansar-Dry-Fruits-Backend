@@ -288,7 +288,7 @@ export const createOrderFromCart = async (req, res) => {
 
     // Get user's cart
     const cart = await Cart.findOne({ user: req.user._id })
-      .populate("items.product", "name price stockQuantity");
+      .populate("items.product", "name price stockQuantity images");
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
@@ -381,6 +381,47 @@ export const createOrderFromCart = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message || "Server error"
+    });
+  }
+};
+
+// @desc    Update estimated delivery date
+// @route   PUT /api/orders/:id/estimated-date
+// @access  Private/Admin
+export const updateEstimatedDeliveryDate = async (req, res) => {
+  try {
+    const { estimatedDeliveryDate } = req.body;
+
+    if (!estimatedDeliveryDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Estimated delivery date is required",
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    order.estimatedDeliveryDate = new Date(estimatedDeliveryDate);
+
+    const updatedOrder = await order.save();
+
+    res.json({
+      success: true,
+      message: "Estimated delivery date updated",
+      order: updatedOrder,
+    });
+  } catch (err) {
+    console.error("Update estimated date error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
     });
   }
 };

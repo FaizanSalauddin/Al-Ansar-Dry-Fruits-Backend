@@ -15,6 +15,7 @@ import {
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
 import { uploadToCloudinary } from "../middlewares/uploadCloudinary.middleware.js";
+import { toggleProductStock } from "../controllers/product.controller.js";
 
 const router = express.Router();
 
@@ -46,6 +47,13 @@ router.put(
   uploadToCloudinary,
   updateProduct
 );
+router.put(
+  "/:id/toggle-stock",
+  protect,
+  isAdmin,
+  toggleProductStock
+);
+
 
 router.delete("/:id", protect, isAdmin, deleteProduct);
 
