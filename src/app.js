@@ -12,7 +12,17 @@ const app = express();
 
 // ========== CRITICAL: MIDDLEWARE ORDER ==========
 // 1. CORS FIRST
-app.use(cors());
+// app.use(cors());
+
+// for mobile testing 
+
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 
 // 2. URL-encoded for form-data (MUST come before json)
 app.use(express.urlencoded({ 

@@ -227,39 +227,42 @@ export const updateOrderToDelivered = async (req, res) => {
   }
 };
 
-// @desc    Update order status
+// @desc    Update order status (ADMIN)
 // @route   PUT /api/orders/:id/status
 // @access  Private/Admin
 export const updateOrderStatus = async (req, res) => {
   try {
+    const { status } = req.body;
+
     const order = await Order.findById(req.params.id);
 
-    if (order) {
-      order.orderStatus = req.body.status;
-
-      if (req.body.status === "delivered") {
-        order.isDelivered = true;
-        order.deliveredAt = Date.now();
-      }
-
-      const updatedOrder = await order.save();
-
-      res.json({
-        success: true,
-        message: `Order status updated to ${req.body.status}`,
-        order: updatedOrder
-      });
-    } else {
-      res.status(404).json({
+    if (!order) {
+      return res.status(404).json({
         success: false,
-        message: "Order not found"
+        message: "Order not found",
       });
     }
+
+    order.orderStatus = status;
+
+    // Auto delivered handling
+    if (status === "delivered") {
+      order.isDelivered = true;
+      order.deliveredAt = Date.now();
+    }
+
+    const updatedOrder = await order.save();
+
+    res.json({
+      success: true,
+      message: `Order status updated to ${status}`,
+      order: updatedOrder,
+    });
   } catch (err) {
     console.error("Update status error:", err);
     res.status(500).json({
       success: false,
-      message: err.message
+      message: "Server error",
     });
   }
 };
@@ -423,5 +426,31 @@ export const updateEstimatedDeliveryDate = async (req, res) => {
       success: false,
       message: "Server error",
     });
+  }
+};
+// @desc    Toggle payment status (Admin)
+// @route   PUT /api/orders/:id/payment-status
+// @access  Private/Admin
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { isPaid } = req.body;
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    order.isPaid = isPaid;
+    order.paidAt = isPaid ? Date.now() : null;
+
+    const updatedOrder = await order.save();
+
+    res.json({
+      success: true,
+      message: `Order marked as ${isPaid ? "Paid" : "Unpaid"}`,
+      order: updatedOrder,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };

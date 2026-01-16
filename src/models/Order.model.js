@@ -78,7 +78,15 @@ const orderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      enum: [
+        "pending",
+        "confirmed",
+        "in-transit",
+        "deliver-today",
+        "deliver-tomorrow",
+        "delivered",
+        "cancelled",
+      ],
       default: "pending",
     },
     estimatedDeliveryDate: {
@@ -92,3 +100,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("Order", orderSchema);
+
+
+
+  

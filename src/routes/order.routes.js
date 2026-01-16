@@ -7,11 +7,14 @@ import {
   updateOrderToPaid,
   updateOrderToDelivered,
   updateOrderStatus,
-  createOrderFromCart
+  createOrderFromCart,
+  updateEstimatedDeliveryDate,
+  updatePaymentStatus, 
 } from "../controllers/order.controller.js";
+
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
-import { updateEstimatedDeliveryDate } from "../controllers/order.controller.js";
+
 
 const router = express.Router();
 
@@ -27,6 +30,9 @@ router.get("/", protect, isAdmin, getOrders);
 router.put("/:id/deliver", protect, isAdmin, updateOrderToDelivered);
 router.put("/:id/status", protect, isAdmin, updateOrderStatus);
 router.put("/:id/estimated-date", protect, isAdmin, updateEstimatedDeliveryDate);
+router.put("/:id/payment-status",protect,isAdmin,updatePaymentStatus
+);
+
 
 
 export default router;
