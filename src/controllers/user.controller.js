@@ -175,3 +175,52 @@ export const updateUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// ================= ADDRESS APIs =================
+
+// @desc    Get user addresses
+// @route   GET /api/users/addresses
+export const getUserAddresses = async (req, res) => {
+  const user = await User.findById(req.user._id);
+  res.json(user.addresses || []);
+};
+
+// @desc    Add new address
+// @route   POST /api/users/addresses
+export const addUserAddress = async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  user.addresses.push(req.body);
+  await user.save();
+
+  res.json(user.addresses);
+};
+
+// @desc    Update address
+// @route   PUT /api/users/addresses/:addressId
+export const updateUserAddress = async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  const address = user.addresses.id(req.params.addressId);
+  if (!address) {
+    return res.status(404).json({ message: "Address not found" });
+  }
+
+  Object.assign(address, req.body);
+  await user.save();
+
+  res.json(user.addresses);
+};
+
+// @desc    Delete address
+// @route   DELETE /api/users/addresses/:addressId
+export const deleteUserAddress = async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  user.addresses = user.addresses.filter(
+    (addr) => addr._id.toString() !== req.params.addressId
+  );
+
+  await user.save();
+  res.json(user.addresses);
+};

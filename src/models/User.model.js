@@ -1,28 +1,38 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const addressSchema = new mongoose.Schema(
+  {
+    label: {
+      type: String,
+      enum: ["Home", "Office", "Other"],
+      default: "Home"
+    },
+    name: String,
+    phone: String,
+    addressLine: String,
+    city: String,
+    state: String,
+    pincode: String,
+    isDefault: {
+      type: Boolean,
+      default: false
+    }
+  },
+  { _id: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true
-    },
-    password: {
-      type: String,
-      required: true
-    },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user"
-    }
+    },
+    addresses: [addressSchema] // ✅ NEW
   },
   { timestamps: true }
 );

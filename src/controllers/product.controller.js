@@ -224,39 +224,52 @@ export const getProductsByCategory = async (req, res) => {
   }
 };
 
-// @desc    Search products (SIMPLE VERSION)
+// @desc    Search products (OPTIMIZED)
 // @route   GET /api/products/search
 // @access  Public
 export const searchProducts = async (req, res) => {
   try {
-    const { q, category, min, max } = req.query;
+    const {
+      q,
+      category,
+      min,
+      max,
+      sort = "newest"
+    } = req.query;
 
     let filter = {};
 
-    // 1. Search by name (q = query)
+    // 🔍 Text search
     if (q) {
-      filter.name = { $regex: q, $options: 'i' }; // 'i' = case insensitive
+      filter.$text = { $search: q };
     }
 
-    // 2. Filter by category
+    // 📦 Category filter
     if (category) {
       filter.category = category;
     }
 
-    // 3. Filter by price range
+    // 💰 Price filter
     if (min || max) {
       filter.price = {};
-      if (min) filter.price.$gte = Number(min); // greater than or equal
-      if (max) filter.price.$lte = Number(max); // less than or equal
+      if (min) filter.price.$gte = Number(min);
+      if (max) filter.price.$lte = Number(max);
     }
 
-    const products = await Product.find(filter);
+    // 🔃 Sorting
+    let sortOption = {};
+    if (sort === "price_low") sortOption.price = 1;
+    else if (sort === "price_high") sortOption.price = -1;
+    else sortOption.createdAt = -1; // newest
+
+    const products = await Product.find(filter).sort(sortOption);
 
     res.json({
       success: true,
       count: products.length,
       products
     });
+
   } catch (err) {
     console.error("Search error:", err);
     res.status(500).json({
@@ -265,6 +278,7 @@ export const searchProducts = async (req, res) => {
     });
   }
 };
+
 
 // @desc    Update product stock
 // @route   PUT /api/products/:id/stock

@@ -312,9 +312,9 @@ export const createOrderFromCart = async (req, res) => {
 
     // Calculate prices (simple calculation)
     const itemsPrice = cart.totalPrice;
-    const shippingPrice = itemsPrice > 1000 ? 0 : 50; // Free shipping above 1000
-    const taxPrice = Math.round(itemsPrice * 0.1); // 10% tax
-    const totalPrice = itemsPrice + shippingPrice + taxPrice;
+    const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+    const totalPrice = itemsPrice + shippingPrice;
+
 
     for (const item of cart.items) {
       if (item.quantity > MAX_QTY_PER_PRODUCT) {
@@ -358,9 +358,9 @@ export const createOrderFromCart = async (req, res) => {
       paymentMethod,
       itemsPrice,
       shippingPrice,
-      taxPrice,
       totalPrice,
     });
+
 
     const createdOrder = await order.save();
 

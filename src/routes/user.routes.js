@@ -7,7 +7,11 @@ import {
   deleteUser,
   getUserById,
   updateUser,
-  getUserDashboard
+  getUserDashboard,
+  getUserAddresses,
+  addUserAddress,
+  updateUserAddress,
+  deleteUserAddress
 } from "../controllers/user.controller.js";
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
@@ -23,6 +27,13 @@ router.get("/profile", protect, getUserProfile);
 
 router.get("/dashboard", protect, getUserDashboard);
 router.put("/profile", protect, updateUserProfile);
+
+// User Addresses
+
+router.get("/addresses", protect, getUserAddresses);
+router.post("/addresses", protect, addUserAddress);
+router.put("/addresses/:addressId", protect, updateUserAddress);
+router.delete("/addresses/:addressId", protect, deleteUserAddress);
 
 // Admin user management routes
 
