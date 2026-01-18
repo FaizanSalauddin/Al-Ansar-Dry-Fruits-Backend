@@ -131,28 +131,67 @@ export const getMyOrders = async (req, res) => {
   }
 };
 
-// @desc    Get all orders
+// @desc    Get all orders (FILTERED)
 // @route   GET /api/orders
 // @access  Private/Admin
 export const getOrders = async (req, res) => {
   try {
-    const orders = await Order.find({})
+    const { status, payment, date } = req.query;
+
+    const query = {};
+
+    // 🔹 STATUS FILTER
+    if (status) {
+      query.orderStatus = status;
+    }
+
+    // 🔹 PAYMENT FILTER
+    if (payment === "paid") query.isPaid = true;
+    if (payment === "unpaid") query.isPaid = false;
+
+    // 🔹 DATE FILTER
+    if (date === "today") {
+      // 🇮🇳 IST START OF DAY
+      const istOffset = 5.5 * 60 * 60 * 1000;
+
+      const now = new Date();
+      const istNow = new Date(now.getTime() + istOffset);
+
+      const startIST = new Date(istNow);
+      startIST.setHours(0, 0, 0, 0);
+
+      const endIST = new Date(istNow);
+      endIST.setHours(23, 59, 59, 999);
+
+      // 🔁 Convert back to UTC for MongoDB
+      const startUTC = new Date(startIST.getTime() - istOffset);
+      const endUTC = new Date(endIST.getTime() - istOffset);
+
+      query.createdAt = {
+        $gte: startUTC,
+        $lte: endUTC,
+      };
+    }
+
+
+    const orders = await Order.find(query)
       .populate("user", "name email")
-      .sort({ createdAt: -1 }); // ✅ NEWEST FIRST
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       orders,
-      count: orders.length
+      count: orders.length,
     });
   } catch (err) {
-    console.error("Get all orders error:", err);
+    console.error("Get orders error:", err);
     res.status(500).json({
       success: false,
-      message: err.message
+      message: err.message,
     });
   }
 };
+
 
 // @desc    Update order to paid
 // @route   PUT /api/orders/:id/pay
