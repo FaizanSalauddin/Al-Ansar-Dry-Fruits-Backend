@@ -14,7 +14,21 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ["almonds", "cashews", "pistachios", "walnuts", "raisins", "dates", "other"],
+      enum: [
+        "almonds",
+        "cashews",
+        "pistachios",
+        "walnuts",
+        "raisins",
+        "dates",
+        "dry-figs",
+        "dry-apricots",
+        "black-raisins",
+        "mixture",
+        "seeds",
+        "gift-packs",
+        "other"
+      ],
     },
     price: {
       type: Number,

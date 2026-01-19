@@ -1,17 +1,13 @@
+// BACKEND/src/controllers/auth.controller.js
 import User from "../models/User.model.js";
 import generateToken from "../utils/generateToken.js";
 
 export const registerUser = async (req, res) => {
   try {
-    console.log("Registration attempt:", req.body);
-    
     const { name, email, password } = req.body;
 
-    // Validate required fields
     if (!name || !email || !password) {
-      return res.status(400).json({ 
-        message: "Please provide name, email and password" 
-      });
+      return res.status(400).json({ message: "All fields required" });
     }
 
     const userExists = await User.findOne({ email });
@@ -26,10 +22,9 @@ export const registerUser = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id)
+      token: generateToken(user._id),
     });
   } catch (err) {
-    console.error("Registration error:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -38,7 +33,7 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -48,10 +43,9 @@ export const loginUser = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id)
+      token: generateToken(user._id),
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-

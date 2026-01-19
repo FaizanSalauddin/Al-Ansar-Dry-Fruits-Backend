@@ -411,7 +411,8 @@ export const getStockReport = async (req, res) => {
 // @access  Public
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Product.distinct("category");
+    // 🔥 ENUM SE DIRECT CATEGORIES
+    const categories = Product.schema.path("category").enumValues;
 
     res.json({
       success: true,
