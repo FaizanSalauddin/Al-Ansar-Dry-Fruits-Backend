@@ -24,7 +24,6 @@ export const registerAdmin = async (req, res) => {
       });
     }
 
-    // Create ADMIN user (role set to 'admin')
     const adminUser = await User.create({
       name,
       email,
@@ -41,7 +40,7 @@ export const registerAdmin = async (req, res) => {
         email: adminUser.email,
         role: adminUser.role
       }
-      // Note: Token nahi denge - alag se login karna hoga
+  
     });
   } catch (err) {
     console.error("Admin registration error:", err);
@@ -52,15 +51,12 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-// ==================== ADMIN LOGIN ====================
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
-    // Check if user exists AND is admin
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -68,7 +64,6 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
-    // Check if user is admin
     if (user.role !== "admin") {
       return res.status(403).json({
         success: false,
@@ -76,7 +71,6 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
-    // Check password
     const isPasswordValid = await user.matchPassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -85,7 +79,6 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json({
@@ -97,8 +90,9 @@ export const loginAdmin = async (req, res) => {
         email: user.email,
         role: user.role
       },
-      token: token
+      token
     });
+
   } catch (err) {
     console.error("Admin login error:", err);
     res.status(500).json({
@@ -108,11 +102,12 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+
 // ==================== GET ALL ADMINS ====================
 export const getAllAdmins = async (req, res) => {
   try {
     const admins = await User.find({ role: "admin" }).select("-password");
-    
+
     res.json({
       success: true,
       count: admins.length,
@@ -131,7 +126,7 @@ export const getAllAdmins = async (req, res) => {
 export const deleteAdmin = async (req, res) => {
   try {
     const admin = await User.findById(req.params.id);
-    
+
     if (!admin) {
       return res.status(404).json({
         success: false,
@@ -148,7 +143,7 @@ export const deleteAdmin = async (req, res) => {
     }
 
     await admin.deleteOne();
-    
+
     res.json({
       success: true,
       message: "Admin deleted successfully"
