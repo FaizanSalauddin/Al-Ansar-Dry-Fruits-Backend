@@ -54,7 +54,7 @@ export const updateUserProfile = async (req, res) => {
 export const getUsers = async (req, res) => {
   try {
     const users = await User.find({}).select("-password");
-    
+
     res.json({
       success: true,
       users,
@@ -75,21 +75,21 @@ export const getUsers = async (req, res) => {
 export const getUserDashboard = async (req, res) => {
   try {
     const userId = req.user._id;
-    
+
     // Get user's orders
     const orders = await Order.find({ user: userId })
       .sort({ createdAt: -1 })
       .limit(5);
-    
+
     // Get order stats
     const totalOrders = await Order.countDocuments({ user: userId });
-    
+
     // Calculate total spent
     const totalSpentResult = await Order.aggregate([
       { $match: { user: userId } },
       { $group: { _id: null, total: { $sum: "$totalPrice" } } }
     ]);
-    
+
     res.json({
       success: true,
       user: {
@@ -193,8 +193,12 @@ export const addUserAddress = async (req, res) => {
   user.addresses.push(req.body);
   await user.save();
 
-  res.json(user.addresses);
+  // ✅ return ONLY newly added address
+  const newAddress = user.addresses[user.addresses.length - 1];
+
+  res.json(newAddress);
 };
+
 
 // @desc    Update address
 // @route   PUT /api/users/addresses/:addressId

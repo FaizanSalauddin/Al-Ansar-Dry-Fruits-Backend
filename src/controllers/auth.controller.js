@@ -1,6 +1,8 @@
 // BACKEND/src/controllers/auth.controller.js
 import User from "../models/User.model.js";
 import generateToken from "../utils/generateToken.js";
+import sendEmail from "../utils/sendEmail.js";
+import { welcomeEmail } from "../templates/welcomeEmail.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -16,7 +18,11 @@ export const registerUser = async (req, res) => {
     }
 
     const user = await User.create({ name, email, password });
-
+    await sendEmail({
+      to: user.email,
+      subject: "Welcome To The Al-Ansar Stores",
+      html: welcomeEmail(user.name),
+    });
     res.status(201).json({
       _id: user._id,
       name: user.name,
@@ -28,6 +34,8 @@ export const registerUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
 
 export const loginUser = async (req, res) => {
   try {

@@ -1,6 +1,11 @@
 import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js";
 import Cart from "../models/Cart.model.js";
+import sendEmail from "../utils/sendEmail.js";
+import { orderPlacedEmail } from "../templates/orderPlacedEmail.js";
+import { orderStatusUpdateEmail } from "../templates/orderStatusUpdateEmail.js";
+
+
 const MAX_QTY_PER_PRODUCT = 5;
 // @desc    Create new order
 // @route   POST /api/orders
@@ -274,7 +279,6 @@ export const updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     const order = await Order.findById(req.params.id);
-
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -284,27 +288,43 @@ export const updateOrderStatus = async (req, res) => {
 
     order.orderStatus = status;
 
-    // Auto delivered handling
     if (status === "delivered") {
       order.isDelivered = true;
       order.deliveredAt = Date.now();
     }
 
-    const updatedOrder = await order.save();
+    await order.save();
+
+    // 🔥 FETCH FRESH ORDER WITH LATEST DATE
+    const freshOrder = await Order.findById(order._id)
+      .populate("user", "name email");
+
+    // 🔥 SEND EMAIL WITH UPDATED DATE
+    await sendEmail({
+      to: freshOrder.user.email,
+      subject: `Order Update: ${freshOrder.orderStatus.toUpperCase()}`,
+      html: orderPlacedEmail(
+        freshOrder.user.name,
+        freshOrder
+      ),
+    });
 
     res.json({
       success: true,
-      message: `Order status updated to ${status}`,
-      order: updatedOrder,
+      message: "Order status updated successfully",
+      order: freshOrder,
     });
+
   } catch (err) {
     console.error("Update status error:", err);
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: err.message,
     });
   }
 };
+
+
 
 // @desc    Create order from cart (AUTOMATIC)
 // @route   POST /api/orders/from-cart
@@ -353,7 +373,8 @@ export const createOrderFromCart = async (req, res) => {
     const itemsPrice = cart.totalPrice;
     const shippingPrice = itemsPrice > 1000 ? 0 : 50;
     const totalPrice = itemsPrice + shippingPrice;
-
+    const estimatedDeliveryDate = new Date();
+    estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
 
     for (const item of cart.items) {
       if (item.quantity > MAX_QTY_PER_PRODUCT) {
@@ -398,6 +419,8 @@ export const createOrderFromCart = async (req, res) => {
       itemsPrice,
       shippingPrice,
       totalPrice,
+      estimatedDeliveryDate,
+      orderStatus: "confirmed",
     });
 
 
@@ -413,11 +436,23 @@ export const createOrderFromCart = async (req, res) => {
     const populatedOrder = await Order.findById(createdOrder._id)
       .populate("user", "name email");
 
+
     res.status(201).json({
       success: true,
       message: "Order created from cart successfully",
       order: populatedOrder
     });
+    // ===== SEND ORDER PLACED EMAIL =====
+    await sendEmail({
+      to: populatedOrder.user.email,
+      subject: `Your Order ${createdOrder._id} has been placed ✅`,
+      html: orderPlacedEmail(
+        populatedOrder.user.name,
+        populatedOrder
+      ),
+    });
+
+
   } catch (err) {
     console.error("Create order from cart error:", err);
     res.status(500).json({
@@ -430,6 +465,7 @@ export const createOrderFromCart = async (req, res) => {
 // @desc    Update estimated delivery date
 // @route   PUT /api/orders/:id/estimated-date
 // @access  Private/Admin
+
 export const updateEstimatedDeliveryDate = async (req, res) => {
   try {
     const { estimatedDeliveryDate } = req.body;
@@ -441,29 +477,48 @@ export const updateEstimatedDeliveryDate = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(req.params.id);
+    // ✅ 1. Update date in DB
+    await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        estimatedDeliveryDate: new Date(estimatedDeliveryDate),
+      },
+      { new: true }
+    );
 
-    if (!order) {
+    // ✅ 2. Fetch FRESH order from DB
+    const freshOrder = await Order.findById(req.params.id)
+      .populate("user", "name email");
+
+    if (!freshOrder) {
       return res.status(404).json({
         success: false,
         message: "Order not found",
       });
     }
 
-    order.estimatedDeliveryDate = new Date(estimatedDeliveryDate);
+    // ✅ 3. Send email with UPDATED date
+    await sendEmail({
+      to: freshOrder.user.email,
+      subject: "📦 Delivery Date Updated",
+      html: orderPlacedEmail(
+        freshOrder.user.name,
+        freshOrder
+      ),
+    });
 
-    const updatedOrder = await order.save();
-
+    // ✅ 4. Respond with fresh data
     res.json({
       success: true,
-      message: "Estimated delivery date updated",
-      order: updatedOrder,
+      message: "Estimated delivery date updated & email sent",
+      order: freshOrder,
     });
+
   } catch (err) {
     console.error("Update estimated date error:", err);
     res.status(500).json({
       success: false,
-      message: "Server error",
+      message: err.message || "Server error",
     });
   }
 };
