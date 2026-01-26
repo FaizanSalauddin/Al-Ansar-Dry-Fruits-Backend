@@ -6,7 +6,7 @@ const addressSchema = new mongoose.Schema(
     label: {
       type: String,
       enum: ["Home", "Office", "Other"],
-      default: "Home"
+      default: "Home",
     },
     name: String,
     phone: String,
@@ -16,39 +16,51 @@ const addressSchema = new mongoose.Schema(
     pincode: String,
     isDefault: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
   { _id: true }
 );
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true },
-    password: {
+    name: { type: String, trim: true },
+
+    email: {
       type: String,
       required: true,
-      select: false, // 👈 extra safety
+      unique: true,
+      lowercase: true,
     },
+
+    // 🔐 ADMIN ONLY
+    password: {
+      type: String,
+      select: false,
+    },
+
     role: {
       type: String,
       enum: ["user", "admin"],
-      default: "user"
+      default: "user",
     },
-    addresses: [addressSchema] // ✅ NEW
+
+    // 🔐 OTP (EMAIL ONLY)
+    otp: String,
+    otpExpiresAt: Date,
+
+    addresses: [addressSchema],
   },
   { timestamps: true }
 );
 
-// password hash
+// Hash password only for admin
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.password || !this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// password compare
 userSchema.methods.matchPassword = function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };

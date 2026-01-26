@@ -1,29 +1,67 @@
-// BACKEND/src/controllers/auth.controller.js
 import User from "../models/User.model.js";
 import generateToken from "../utils/generateToken.js";
 import sendEmail from "../utils/sendEmail.js";
-import { welcomeEmail } from "../templates/welcomeEmail.js";
 
-export const registerUser = async (req, res) => {
+/* ================= USER EMAIL OTP ================= */
+
+// SEND OTP
+export const sendOtp = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { email } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields required" });
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
     }
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+    let user = await User.findOne({ email });
+    const isNewUser = !user;
+
+    if (!user) {
+      user = await User.create({ email, role: "user" });
     }
 
-    const user = await User.create({ name, email, password });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.otp = otp;
+    user.otpExpiresAt = Date.now() + 5 * 60 * 1000;
+    await user.save();
+
     await sendEmail({
-      to: user.email,
-      subject: "Welcome To The Al-Ansar Stores",
-      html: welcomeEmail(user.name),
+      to: email,
+      subject: "Your Login OTP - Al-Ansar Stores",
+      html: `<h2>Your OTP is <b>${otp}</b></h2><p>Valid for 5 minutes</p>`,
     });
-    res.status(201).json({
+
+    res.json({
+      success: true,
+      message: "OTP sent",
+      isNewUser,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// VERIFY OTP
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp, name } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user || user.otp !== otp || user.otpExpiresAt < Date.now()) {
+      return res.status(401).json({ message: "Invalid or expired OTP" });
+    }
+
+    if (!user.name && name) {
+      user.name = name;
+    }
+
+    user.otp = undefined;
+    user.otpExpiresAt = undefined;
+    await user.save();
+
+    res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
@@ -35,23 +73,27 @@ export const registerUser = async (req, res) => {
   }
 };
 
+/* ================= ADMIN PASSWORD LOGIN ================= */
 
-
-export const loginUser = async (req, res) => {
+export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select("+password");
-    if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const admin = await User.findOne({
+      email,
+      role: "admin",
+    }).select("+password");
+
+    if (!admin || !(await admin.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid admin credentials" });
     }
 
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
+      _id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      role: admin.role,
+      token: generateToken(admin._id),
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
