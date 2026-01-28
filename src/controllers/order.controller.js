@@ -278,7 +278,11 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate(
+      "user",
+      "name email"
+    );
+
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -286,6 +290,18 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    // ✅ CHECK IF STATUS ACTUALLY CHANGED
+    const oldStatus = order.orderStatus;
+
+    if (status === oldStatus) {
+      return res.json({
+        success: true,
+        message: "Status unchanged",
+        order,
+      });
+    }
+
+    // ✅ UPDATE STATUS
     order.orderStatus = status;
 
     if (status === "delivered") {
@@ -293,26 +309,22 @@ export const updateOrderStatus = async (req, res) => {
       order.deliveredAt = Date.now();
     }
 
-    await order.save();
+    const updatedOrder = await order.save();
 
-    // 🔥 FETCH FRESH ORDER WITH LATEST DATE
-    const freshOrder = await Order.findById(order._id)
-      .populate("user", "name email");
-
-    // 🔥 SEND EMAIL WITH UPDATED DATE
+    // ✅ SEND STATUS EMAIL ONLY IF STATUS CHANGED
     await sendEmail({
-      to: freshOrder.user.email,
-      subject: `Order Update: ${freshOrder.orderStatus.toUpperCase()}`,
-      html: orderPlacedEmail(
-        freshOrder.user.name,
-        freshOrder
+      to: order.user.email,
+      subject: `Order Status Updated: ${status.toUpperCase()}`,
+      html: orderStatusUpdateEmail(
+        order.user.name,
+        updatedOrder
       ),
     });
 
     res.json({
       success: true,
-      message: "Order status updated successfully",
-      order: freshOrder,
+      message: "Order status updated",
+      order: updatedOrder,
     });
 
   } catch (err) {
@@ -371,7 +383,7 @@ export const createOrderFromCart = async (req, res) => {
 
     // Calculate prices (simple calculation)
     const itemsPrice = cart.totalPrice;
-    const shippingPrice = itemsPrice > 1000 ? 0 : 50;
+    const shippingPrice = itemsPrice >= 1000 ? 0 : 50;
     const totalPrice = itemsPrice + shippingPrice;
     const estimatedDeliveryDate = new Date();
     estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
@@ -497,15 +509,22 @@ export const updateEstimatedDeliveryDate = async (req, res) => {
       });
     }
 
-    // ✅ 3. Send email with UPDATED date
+    // 📧 SEND DELIVERY DATE EMAIL ONLY
     await sendEmail({
       to: freshOrder.user.email,
       subject: "📦 Delivery Date Updated",
-      html: orderPlacedEmail(
-        freshOrder.user.name,
-        freshOrder
-      ),
+      html: `
+    <div style="font-family: Arial">
+      <h2>Hi ${freshOrder.user.name} 👋</h2>
+      <p>Your delivery date has been updated.</p>
+      <p><b>New Expected Delivery:</b> 
+        ${new Date(freshOrder.estimatedDeliveryDate).toDateString()}
+      </p>
+      <p>— Team Al-Ansar</p>
+    </div>
+  `,
     });
+
 
     // ✅ 4. Respond with fresh data
     res.json({
