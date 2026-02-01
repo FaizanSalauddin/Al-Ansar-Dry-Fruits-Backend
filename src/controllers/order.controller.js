@@ -337,92 +337,75 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 
-
 // @desc    Create order from cart (AUTOMATIC)
 // @route   POST /api/orders/from-cart
 // @access  Private
 export const createOrderFromCart = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod = "cod" } = req.body;
-    const { name, address, city, state, pincode, phone } = shippingAddress;
+    const { shippingAddress, paymentMethod = "cod", paymentResult } = req.body;
 
+    // 1. Validation for Shipping Address
     if (!shippingAddress) {
       return res.status(400).json({
         success: false,
-        message: "Shipping address is required"
+        message: "Shipping address is required",
       });
     }
 
+    const { name, address, city, state, pincode, phone } = shippingAddress;
     if (!name || !address || !city || !state || !pincode || !phone) {
       return res.status(400).json({
         success: false,
-        message: "Incomplete shipping address"
+        message: "Incomplete shipping address",
       });
     }
 
-    // Get user's cart
-    const cart = await Cart.findOne({ user: req.user._id })
-      .populate("items.product", "name price stockQuantity images");
+    // 2. Get user's cart
+    const cart = await Cart.findOne({ user: req.user._id }).populate(
+      "items.product",
+      "name price stockQuantity images"
+    );
 
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Cart is empty"
+        message: "Cart is empty",
       });
     }
 
-    // Prepare order items from cart
-    const orderItems = cart.items.map(item => ({
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      image: item.product.images?.[0]?.url, // ✅ VERY IMPORTANT
-      product: item.product._id
-    }));
-
-
-    // Calculate prices (simple calculation)
-    const itemsPrice = cart.totalPrice;
-    const shippingPrice = itemsPrice >= 1000 ? 0 : 50;
-    const totalPrice = itemsPrice + shippingPrice;
-    const estimatedDeliveryDate = new Date();
-    estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
-
+    // 3. Check Order Limits & Stock
     for (const item of cart.items) {
       if (item.quantity > MAX_QTY_PER_PRODUCT) {
         return res.status(400).json({
           success: false,
-          message: `Order limit exceeded for ${item.name}. Max ${MAX_QTY_PER_PRODUCT} allowed`
+          message: `Order limit exceeded for ${item.product.name}. Max ${MAX_QTY_PER_PRODUCT} allowed`,
         });
       }
-    }
-
-
-    // Check stock for all items
-    for (const item of cart.items) {
-      const product = item.product;
-      if (product.stockQuantity < item.quantity) {
+      if (item.product.stockQuantity < item.quantity) {
         return res.status(400).json({
           success: false,
-          message: `Insufficient stock for ${product.name}. Only ${product.stockQuantity} available`
+          message: `Insufficient stock for ${item.product.name}. Only ${item.product.stockQuantity} available`,
         });
       }
     }
 
-    // Update product stock quantities
-    for (const item of cart.items) {
-      const product = await Product.findById(item.product._id);
-      if (product) {
-        product.stockQuantity -= item.quantity;
-        if (product.stockQuantity < 0) {
-          product.stockQuantity = 0;
-        }
-        product.inStock = product.stockQuantity > 0;
-        await product.save();
-      }
-    }
+    // 4. Prepare Order Data
+    const orderItems = cart.items.map((item) => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      image: item.product.images?.[0]?.url,
+      product: item.product._id,
+    }));
 
-    // Create order
+    const itemsPrice = cart.totalPrice;
+    const shippingPrice = itemsPrice >= 1000 ? 0 : 50;
+    const totalPrice = itemsPrice + shippingPrice;
+
+    const estimatedDeliveryDate = new Date();
+    estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 3);
+
+    // 5. Initialize New Order (Fixed the ReferenceError here)
     const order = new Order({
       user: req.user._id,
       orderItems,
@@ -435,41 +418,57 @@ export const createOrderFromCart = async (req, res) => {
       orderStatus: "confirmed",
     });
 
+    // 6. Set Online Payment Details if applicable
+    if (paymentMethod === "online" || paymentMethod === "stripe") {
+      order.isPaid = true;
+      order.paidAt = Date.now();
+      order.paymentResult = paymentResult;
+      // Ensure paymentMethod is consistent with your Schema Enum
+      order.paymentMethod = "online";
+    }
 
+    // 7. Update product stock quantities
+    for (const item of cart.items) {
+      const product = await Product.findById(item.product._id);
+      if (product) {
+        product.stockQuantity -= item.quantity;
+        product.inStock = product.stockQuantity > 0;
+        await product.save();
+      }
+    }
+
+    // 8. Save Order & Clear Cart
     const createdOrder = await order.save();
 
-    // Clear cart after order
     cart.items = [];
     cart.totalItems = 0;
     cart.totalPrice = 0;
     await cart.save();
 
-    // Populate user details
-    const populatedOrder = await Order.findById(createdOrder._id)
-      .populate("user", "name email");
-
+    // 9. Final Response & Email
+    const populatedOrder = await Order.findById(createdOrder._id).populate(
+      "user",
+      "name email"
+    );
 
     res.status(201).json({
       success: true,
-      message: "Order created from cart successfully",
-      order: populatedOrder
-    });
-    // ===== SEND ORDER PLACED EMAIL =====
-    await sendEmail({
-      to: populatedOrder.user.email,
-      subject: `Your Order ${createdOrder._id} has been placed ✅`,
-      html: orderPlacedEmail(
-        populatedOrder.user.name,
-        populatedOrder
-      ),
+      message: "Order created successfully",
+      order: populatedOrder,
     });
 
+    // 10. Send Email (Async)
+    sendEmail({
+      to: populatedOrder.user.email,
+      subject: `Your Order ${createdOrder._id} has been placed ✅`,
+      html: orderPlacedEmail(populatedOrder.user.name, populatedOrder),
+    }).catch((err) => console.error("Email Sending Failed:", err));
 
   } catch (err) {
     console.error("Create order from cart error:", err);
     res.status(500).json({
       success: false,
-      message: err.message || "Server error"
+      message: err.message || "Server error",
     });
   }
 };

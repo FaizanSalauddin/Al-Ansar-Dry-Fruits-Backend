@@ -7,6 +7,7 @@ import userRoutes from "./routes/user.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 
 const app = express();
 
@@ -25,13 +26,13 @@ app.use(
 );
 
 // 2. URL-encoded for form-data (MUST come before json)
-app.use(express.urlencoded({ 
+app.use(express.urlencoded({
   extended: true,
   limit: '50mb'  // Increase limit for file uploads
 }));
 
 // 3. JSON parsing
-app.use(express.json({ 
+app.use(express.json({
   limit: '50mb'  // Increase limit
 }));
 
@@ -48,11 +49,11 @@ app.get('/api/test-cloudinary', async (req, res) => {
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
-}); 
+});
 
 // ========== BASIC ROUTE ==========
 app.get("/", (req, res) => {
-  res.json({ 
+  res.json({
     message: "Al-Ansar Dry Fruits API is running",
     timestamp: new Date().toISOString()
   });
@@ -65,7 +66,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
-
+app.use("/api/payments", paymentRoutes);
 // ========== ERROR HANDLING ==========
 app.use((req, res, next) => {
   res.status(404).json({
