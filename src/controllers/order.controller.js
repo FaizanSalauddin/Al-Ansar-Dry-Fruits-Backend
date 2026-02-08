@@ -276,7 +276,7 @@ export const updateOrderToDelivered = async (req, res) => {
 // @access  Private/Admin
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, isPaid } = req.body; // Added isPaid here
 
     const order = await Order.findById(req.params.id).populate(
       "user",
@@ -290,40 +290,53 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // ✅ CHECK IF STATUS ACTUALLY CHANGED
     const oldStatus = order.orderStatus;
 
-    if (status === oldStatus) {
-      return res.json({
-        success: true,
-        message: "Status unchanged",
-        order,
-      });
+    // ✅ UPDATE STATUS LOGIC
+    if (status && status !== oldStatus) {
+      order.orderStatus = status;
+
+      // Agar status 'delivered' set kiya jaye, toh automatically delivered status update ho
+      if (status === "delivered") {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+
+        // Logic: Agar delivered ho gaya hai, toh logically wo Paid bhi hona chahiye (COD ke case mein)
+        if (order.paymentMethod === 'cod') {
+          order.isPaid = true;
+          order.paidAt = Date.now();
+        }
+      }
     }
 
-    // ✅ UPDATE STATUS
-    order.orderStatus = status;
-
-    if (status === "delivered") {
-      order.isDelivered = true;
-      order.deliveredAt = Date.now();
+    // ✅ NEW: MANUAL PAID TOGGLE LOGIC (For your Dashboard revenue)
+    // Agar admin ne checkbox/toggle se isPaid bheja hai
+    if (typeof isPaid !== 'undefined') {
+      order.isPaid = isPaid;
+      if (isPaid) {
+        order.paidAt = Date.now();
+      } else {
+        order.paidAt = null;
+      }
     }
 
     const updatedOrder = await order.save();
 
-    // ✅ SEND STATUS EMAIL ONLY IF STATUS CHANGED
-    await sendEmail({
-      to: order.user.email,
-      subject: `Order Status Updated: ${status.toUpperCase()}`,
-      html: orderStatusUpdateEmail(
-        order.user.name,
-        updatedOrder
-      ),
-    });
+    // ✅ SEND EMAIL (Only if status changed)
+    if (status && status !== oldStatus) {
+      await sendEmail({
+        to: order.user.email,
+        subject: `Order Status Updated: ${status.toUpperCase()}`,
+        html: orderStatusUpdateEmail(
+          order.user.name,
+          updatedOrder
+        ),
+      });
+    }
 
     res.json({
       success: true,
-      message: "Order status updated",
+      message: "Order status updated successfully",
       order: updatedOrder,
     });
 
