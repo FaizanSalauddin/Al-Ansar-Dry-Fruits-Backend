@@ -13,6 +13,8 @@ import {
   updateUserAddress,
   deleteUserAddress
 } from "../controllers/user.controller.js";
+import { getUserOrders } from "../controllers/user.controller.js";
+
 import protect from "../middlewares/auth.middleware.js";
 import isAdmin from "../middlewares/admin.middleware.js";
 
@@ -39,6 +41,7 @@ router.delete("/addresses/:addressId", protect, deleteUserAddress);
 
 router.get("/", protect, isAdmin, getUsers);
 router.get("/:id", protect, isAdmin, getUserById);
+router.get("/:id/orders", protect, isAdmin, getUserOrders);
 router.put("/:id", protect, isAdmin, updateUser);
 router.delete("/:id", protect, isAdmin, deleteUser);
 

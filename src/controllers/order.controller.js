@@ -145,6 +145,12 @@ export const getOrders = async (req, res) => {
 
     const query = {};
 
+    // 🔹 USER FILTER
+    if (req.query.user) {
+      query.user = req.query.user;
+    }
+
+
     // 🔹 STATUS FILTER
     if (status) {
       query.orderStatus = status;

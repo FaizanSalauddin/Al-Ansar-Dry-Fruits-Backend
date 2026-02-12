@@ -24,7 +24,7 @@ router.get("/myorders", protect, getMyOrders);
 router.get("/:id", protect, getOrderById);
 router.put("/:id/pay", protect, updateOrderToPaid);
 router.post("/from-cart", protect, createOrderFromCart);
-// Admin routes
+
 // Admin routes
 router.get("/", protect, isAdmin, getOrders);
 router.put("/:id/deliver", protect, isAdmin, updateOrderToDelivered);

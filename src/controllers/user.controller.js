@@ -1,4 +1,5 @@
 import User from "../models/User.model.js";
+import Order from "../models/Order.model.js";
 
 // @desc    Get user profile
 // @route   GET /api/users/profile
@@ -227,4 +228,27 @@ export const deleteUserAddress = async (req, res) => {
 
   await user.save();
   res.json(user.addresses);
+};
+
+
+// @desc    Get orders of a specific user (Admin)
+// @route   GET /api/users/:id/orders
+// @access  Admin
+export const getUserOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ user: req.params.id })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      orders,
+      count: orders.length
+    });
+  } catch (err) {
+    console.error("Get user orders error:", err);
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+  }
 };
