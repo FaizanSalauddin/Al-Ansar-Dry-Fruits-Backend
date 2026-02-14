@@ -26,7 +26,7 @@ export const sendOtp = async (req, res) => {
     user.otpExpiresAt = Date.now() + 5 * 60 * 1000;
     await user.save();
 
-    await sendEmail({
+    sendEmail({
       to: email,
       subject: "Your Login OTP - Al-Ansar Stores",
       html: `<h2>Your OTP is <b>${otp}</b></h2><p>Valid for 5 minutes</p>`,
