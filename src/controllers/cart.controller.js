@@ -8,6 +8,14 @@ const MAX_QTY_PER_PRODUCT = 5;
 // @access  Private
 export const getCart = async (req, res) => {
   try {
+    // Safety check
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authorized",
+      });
+    }
+
     const cart = await Cart.findOne({ user: req.user._id })
       .populate("items.product", "name price images weight");
 
@@ -18,23 +26,24 @@ export const getCart = async (req, res) => {
         cart: {
           items: [],
           totalItems: 0,
-          totalPrice: 0
-        }
+          totalPrice: 0,
+        },
       });
     }
 
     res.json({
       success: true,
-      cart
+      cart,
     });
   } catch (err) {
     console.error("Get cart error:", err);
     res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Server error",
     });
   }
 };
+
 
 // @desc    Add to cart (SMART - handles single AND multiple items)
 // @route   POST /api/cart/add

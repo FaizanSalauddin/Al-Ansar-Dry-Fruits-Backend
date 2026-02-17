@@ -8,6 +8,7 @@ import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 
 const app = express();
 
@@ -36,6 +37,8 @@ app.use(express.json({
   limit: '50mb'  // Increase limit
 }));
 
+
+app.use("/api/chat", chatRoutes);
 
 import cloudinary from './config/cloudinary.js';
 
