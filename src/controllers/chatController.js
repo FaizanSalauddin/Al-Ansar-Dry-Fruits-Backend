@@ -3,7 +3,7 @@ import Product from "../models/Product.model.js";
 
 const client = new OpenAI({
     apiKey: process.env.GROQ_API_KEY,
-    baseURL: "https://api.groq.com/openai/v1",
+    baseURL: "https://api.groq.com/openai/v1" ,
 });
 
 export const chatWithBot = async (req, res) => {
@@ -17,7 +17,7 @@ export const chatWithBot = async (req, res) => {
         const lowerMsg = message.toLowerCase().trim();
 
         // Detect greeting from user
-        const greetingWords = ["hi", "hello", "salam", "assalam", "hey"];
+        const greetingWords = ["hi", "hello", "salam", "assalam", "hey", "namaste"];
         const isGreeting = greetingWords.some(word =>
             lowerMsg === word || lowerMsg.startsWith(word + " ")
         );
@@ -42,7 +42,9 @@ Behavior rules:
 4. If the user asks anything outside this domain:
    - Politely refuse.
    - Say: "I can only help with dry fruits and health-related questions."
-
+5. Always maintain a friendly and helpful tone, even when refusing to answer.
+6. If the user asks question in hinglish or urdu , answer in hinglish always not use deep hindi or urdu words in your answer.
+7. If the user asks a question that indicates they are looking for product recommendations, try to detect the relevant dry fruit categories from their question and recommend products from those categories.
 Tone:
 - Friendly
 - Short answers
