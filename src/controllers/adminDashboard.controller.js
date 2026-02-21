@@ -7,133 +7,126 @@ export const getAdminDashboard = async (req, res) => {
     const { timeframe, date } = req.query;
     const now = new Date();
 
-    // 1. Basic Counts
-    const totalProducts = await Product.countDocuments();
-    const totalOrders = await Order.countDocuments();
-    const totalUsers = await User.countDocuments({ role: "user" });
+    /* =====================================================
+       1️⃣ PARALLEL BASIC COUNTS + TOTAL REVENUE
+    ===================================================== */
 
-    // 2. Total Revenue (All Paid Orders)
-    const revenueData = await Order.aggregate([
-      { $match: { isPaid: true } },
-      { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+    const [
+      totalProducts,
+      totalOrders,
+      totalUsers,
+      paidOrders,
+      unpaidOrders,
+      revenueAgg
+    ] = await Promise.all([
+      Product.countDocuments(),
+      Order.countDocuments(),
+      User.countDocuments({ role: "user" }),
+      Order.countDocuments({ isPaid: true }),
+      Order.countDocuments({ isPaid: false }),
+      Order.aggregate([
+        { $match: { isPaid: true } },
+        { $group: { _id: null, total: { $sum: "$totalPrice" } } }
+      ])
     ]);
-    const totalRevenue = revenueData[0]?.total || 0;
 
-    // 3. Pie Chart Data: Paid vs Unpaid orders
-    const paidOrders = await Order.countDocuments({ isPaid: true });
-    const unpaidOrders = await Order.countDocuments({ isPaid: false });
+    const totalRevenue = revenueAgg[0]?.total || 0;
 
-    // 4. Time-based Revenue Calculations
-    // Today's Revenue
+    /* =====================================================
+       2️⃣ TIME BASED REVENUE (PARALLEL)
+    ===================================================== */
+
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
+
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
-    
-    const todayRevenueData = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: todayStart, $lte: todayEnd }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-    ]);
-    const todayRevenue = todayRevenueData[0]?.total || 0;
 
-    // This Week's Revenue (Monday to Sunday)
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+    weekStart.setDate(now.getDate() - now.getDay() + 1);
     weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6); // Sunday
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    const weeklyRevenueData = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: weekStart, $lte: weekEnd }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-    ]);
-    const weeklyRevenue = weeklyRevenueData[0]?.total || 0;
 
-    // This Month's Revenue
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     monthEnd.setHours(23, 59, 59, 999);
-    
-    const monthlyRevenueData = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: monthStart, $lte: monthEnd }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-    ]);
-    const monthlyRevenue = monthlyRevenueData[0]?.total || 0;
 
-    // This Year's Revenue
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const yearEnd = new Date(now.getFullYear(), 11, 31);
     yearEnd.setHours(23, 59, 59, 999);
-    
-    const yearlyRevenueData = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: yearStart, $lte: yearEnd }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-    ]);
-    const yearlyRevenue = yearlyRevenueData[0]?.total || 0;
 
-    // Custom Date Revenue
+    const [
+      todayAgg,
+      weeklyAgg,
+      monthlyAgg,
+      yearlyAgg
+    ] = await Promise.all([
+      getRevenueBetween(todayStart, todayEnd),
+      getRevenueBetween(weekStart, weekEnd),
+      getRevenueBetween(monthStart, monthEnd),
+      getRevenueBetween(yearStart, yearEnd)
+    ]);
+
+    const todayRevenue = todayAgg;
+    const weeklyRevenue = weeklyAgg;
+    const monthlyRevenue = monthlyAgg;
+    const yearlyRevenue = yearlyAgg;
+
+    /* =====================================================
+       3️⃣ CUSTOM DATE (ONLY IF NEEDED)
+    ===================================================== */
+
     let customDateRevenue = 0;
-    if (date && timeframe === 'custom') {
+
+    if (date && timeframe === "custom") {
       const customStart = new Date(date);
       customStart.setHours(0, 0, 0, 0);
+
       const customEnd = new Date(date);
       customEnd.setHours(23, 59, 59, 999);
-      
-      const customRevenueData = await Order.aggregate([
-        { 
-          $match: { 
-            isPaid: true,
-            createdAt: { $gte: customStart, $lte: customEnd }
-          } 
-        },
-        { $group: { _id: null, total: { $sum: "$totalPrice" } } }
-      ]);
-      customDateRevenue = customRevenueData[0]?.total || 0;
+
+      customDateRevenue = await getRevenueBetween(
+        customStart,
+        customEnd
+      );
     }
 
-    // 5. Generate Chart Data
-    // Daily Data (Last 7 days)
-    const dailyData = await generateDailyData();
-    
-    // Weekly Data (Last 4 weeks)
-    const weeklyData = await generateWeeklyData();
-    
-    // Monthly Data (Last 6 months)
-    const monthlyData = await generateMonthlyData();
-    
-    // Yearly Data (Last 5 years)
-    const yearlyData = await generateYearlyData();
+    /* =====================================================
+       4️⃣ CHART DATA — ONLY 4 AGGREGATIONS (BIG WIN 🚀)
+    ===================================================== */
 
-    // 6. Recent orders and Low Stock
+    const [dailyData, weeklyData, monthlyData, yearlyData] =
+      await Promise.all([
+        getDailyDataOptimized(),
+        getWeeklyDataOptimized(),
+        getMonthlyDataOptimized(),
+        getYearlyDataOptimized()
+      ]);
+
+    /* =====================================================
+       5️⃣ LIGHTWEIGHT RECENT ORDERS
+    ===================================================== */
+
     const recentOrders = await Order.find({})
-      .populate("user", "name email")
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(10)
+      .select("user totalPrice createdAt isPaid")
+      .populate("user", "name email")
+      .lean();
 
     const lowStockProducts = await Product.find({
       stockQuantity: { $lt: 20 }
-    }).limit(10);
+    })
+      .select("name stockQuantity")
+      .limit(10)
+      .lean();
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
 
     res.json({
       success: true,
@@ -166,131 +159,205 @@ export const getAdminDashboard = async (req, res) => {
   }
 };
 
-// Helper function for Daily Data (Last 7 days)
-async function generateDailyData() {
-  const data = [];
-  const now = new Date();
-  
+/* =====================================================
+   🔥 HELPER: Revenue Between Dates
+===================================================== */
+
+async function getRevenueBetween(start, end) {
+  const result = await Order.aggregate([
+    {
+      $match: {
+        isPaid: true,
+        createdAt: { $gte: start, $lte: end }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+
+  return result[0]?.total || 0;
+}
+
+/* =====================================================
+   🚀 DAILY (LAST 7 DAYS) — SINGLE QUERY
+===================================================== */
+
+async function getDailyDataOptimized() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = new Date(today);
+  start.setDate(start.getDate() - 6);
+
+  // Mongo se actual data
+  const raw = await Order.aggregate([
+    {
+      $match: {
+        isPaid: true,
+        createdAt: { $gte: start }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+        },
+        revenue: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+
+  // map for quick lookup
+  const map = new Map(raw.map(r => [r._id, r.revenue]));
+
+  // ALWAYS 7 days return
+  const result = [];
+
   for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    date.setHours(0, 0, 0, 0);
-    
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-    
-    const result = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: date, $lte: dayEnd }
-        } 
-      },
-      { $group: { _id: null, revenue: { $sum: "$totalPrice" } } }
-    ]);
-    
-    data.push({
-      name: date.toLocaleDateString('en-IN', { weekday: 'short' }),
-      fullDate: date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-      revenue: result[0]?.revenue || 0
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+
+    const key = d.toISOString().slice(0, 10);
+
+    result.push({
+      _id: key,
+      revenue: map.get(key) || 0
     });
   }
-  
-  return data;
+
+  return result;
 }
 
-// Helper function for Weekly Data (Last 4 weeks)
-async function generateWeeklyData() {
-  const data = [];
+/* =====================================================
+   🚀 WEEKLY — SINGLE QUERY
+===================================================== */
+
+async function getWeeklyDataOptimized() {
   const now = new Date();
-  
+  const start = new Date(now);
+  start.setDate(start.getDate() - 28);
+
+  const raw = await Order.aggregate([
+    {
+      $match: {
+        isPaid: true,
+        createdAt: { $gte: start }
+      }
+    },
+    {
+      $group: {
+        _id: { $isoWeek: "$createdAt" },
+        revenue: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+
+  const map = new Map(raw.map(r => [r._id, r.revenue]));
+
+  const currentWeek = getISOWeek(now);
+  const result = [];
+
   for (let i = 3; i >= 0; i--) {
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - (now.getDay() + (i * 7)) + 1);
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    const result = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: weekStart, $lte: weekEnd }
-        } 
-      },
-      { $group: { _id: null, revenue: { $sum: "$totalPrice" } } }
-    ]);
-    
-    data.push({
-      name: `Week ${i + 1}`,
-      dateRange: `${weekStart.getDate()}/${weekStart.getMonth()+1} - ${weekEnd.getDate()}/${weekEnd.getMonth()+1}`,
-      revenue: result[0]?.revenue || 0
+    const week = currentWeek - i;
+
+    result.push({
+      _id: week,
+      revenue: map.get(week) || 0
     });
   }
-  
-  return data;
+
+  return result;
 }
 
-// Helper function for Monthly Data (Last 6 months)
-async function generateMonthlyData() {
-  const data = [];
+// helper
+function getISOWeek(date) {
+  const tmp = new Date(date);
+  tmp.setHours(0, 0, 0, 0);
+  tmp.setDate(tmp.getDate() + 4 - (tmp.getDay() || 7));
+  const yearStart = new Date(tmp.getFullYear(), 0, 1);
+  return Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+}
+
+/* =====================================================
+   🚀 MONTHLY — SINGLE QUERY
+===================================================== */
+
+async function getMonthlyDataOptimized() {
   const now = new Date();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - 5);
+
+  const raw = await Order.aggregate([
+    {
+      $match: {
+        isPaid: true,
+        createdAt: { $gte: start }
+      }
+    },
+    {
+      $group: {
+        _id: { $month: "$createdAt" },
+        revenue: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+
+  const map = new Map(raw.map(r => [r._id, r.revenue]));
+  const result = [];
+
   for (let i = 5; i >= 0; i--) {
-    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-    const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-    monthEnd.setHours(23, 59, 59, 999);
-    
-    const result = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: monthStart, $lte: monthEnd }
-        } 
-      },
-      { $group: { _id: null, revenue: { $sum: "$totalPrice" } } }
-    ]);
-    
-    data.push({
-      name: monthNames[month.getMonth()],
-      fullMonth: month.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-      revenue: result[0]?.revenue || 0
+    const d = new Date(now);
+    d.setMonth(now.getMonth() - i);
+
+    const month = d.getMonth() + 1;
+
+    result.push({
+      _id: month,
+      revenue: map.get(month) || 0
     });
   }
-  
-  return data;
+
+  return result;
 }
 
-// Helper function for Yearly Data (Last 5 years)
-async function generateYearlyData() {
-  const data = [];
-  const currentYear = new Date().getFullYear();
-  
-  for (let i = 4; i >= 0; i--) {
-    const year = currentYear - i;
-    const yearStart = new Date(year, 0, 1);
-    const yearEnd = new Date(year, 11, 31);
-    yearEnd.setHours(23, 59, 59, 999);
-    
-    const result = await Order.aggregate([
-      { 
-        $match: { 
-          isPaid: true,
-          createdAt: { $gte: yearStart, $lte: yearEnd }
-        } 
-      },
-      { $group: { _id: null, revenue: { $sum: "$totalPrice" } } }
-    ]);
-    
-    data.push({
-      name: year.toString(),
-      revenue: result[0]?.revenue || 0
+/* =====================================================
+   🚀 YEARLY — SINGLE QUERY
+===================================================== */
+
+async function getYearlyDataOptimized() {
+  const now = new Date();
+  const startYear = now.getFullYear() - 4;
+
+  const raw = await Order.aggregate([
+    {
+      $match: {
+        isPaid: true,
+        createdAt: {
+          $gte: new Date(startYear, 0, 1)
+        }
+      }
+    },
+    {
+      $group: {
+        _id: { $year: "$createdAt" },
+        revenue: { $sum: "$totalPrice" }
+      }
+    }
+  ]);
+
+  const map = new Map(raw.map(r => [r._id, r.revenue]));
+  const result = [];
+
+  for (let y = startYear; y <= now.getFullYear(); y++) {
+    result.push({
+      _id: y,
+      revenue: map.get(y) || 0
     });
   }
-  
-  return data;
+
+  return result;
 }
