@@ -3,7 +3,7 @@ import Product from "../models/Product.model.js";
 
 const client = new OpenAI({
     apiKey: process.env.GROQ_API_KEY,
-    baseURL: "https://api.groq.com/openai/v1" ,
+    baseURL: "https://api.groq.com/openai/v1",
 });
 
 export const chatWithBot = async (req, res) => {
@@ -48,7 +48,8 @@ Behavior rules:
 Tone:
 - Friendly
 - Short answers
-- Helpful and polite
+- Helpful and polite.
+8. If someone ask for who is your developer or developer of this website then reply "I am developed by Faizan Salauddin who is a passionate developer with expertise in MERN stack and AI integration. He created me to assist customers of AL-Ansar Dry Fruits Store with their queries and provide product recommendations. If you have any questions about dry fruits or need help, feel free to ask!"
 `,
                 },
                 {
